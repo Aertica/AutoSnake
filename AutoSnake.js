@@ -33,9 +33,10 @@ class Point
         return (this.x == point.x) && (this.y == point.y)
     }
 
-    neighbors = () =>
+    neighbors = (random=false) =>
     {
-        return [this.left(), this.down(), this.right(), this.up()].sort((a, b) => {return 0.5 - Math.random()})
+        let neighbors = [this.up(), this.right(), this.down(), this.left()]
+        return (random) ? neighbors.sort((a, b) => {return 0.5 - Math.random()}) : neighbors
     }
 
     adjacentTo = (point) =>
@@ -48,11 +49,7 @@ class Point
 
     in = (points) =>
     {
-        for(let i = 0; i < points.length; i++)
-        {
-            if(this.equals(points[i])) return i
-        }
-        return false
+        for(let point of points) if(this.equals(point)) return true
     }
 
     within = (grid) =>
@@ -60,9 +57,9 @@ class Point
         return (this.x > -1) && (this.x < grid.width) && (this.y > -1) && (this.y < grid.height)
     }
 
-    static toIndex = (x, y, grid) =>
+    static toIndex = (point, grid) =>
     {
-        return (y * grid.width) + x
+        return (point.y * grid.width) + point.x
     }
 
     static fromIndex = (i, grid) =>
@@ -80,111 +77,150 @@ class Tile
 {
     static length = 100
 
-    constructor(index, width)
+    constructor(index, grid)
     {
-        this.point = new Point(index % width, ~~(index / width))
+        this.point = Point.fromIndex(index, grid)
     }
 
-    drawTile = (color, edges=[]) => 
+    drawSnake = (edges) =>
     {
-        let ctx = CANVAS.getContext('2d')
-        ctx.beginPath()
-        ctx.fillStyle = color
+        const X = (this.point.x * Tile.length) + (Tile.length / 2)
+        const Y = (this.point.y * Tile.length) + (Tile.length / 2)
+        const RADIUS = Tile.length * 0.25
 
-        let margin = Math.max(Tile.length * 0.02, 1)
-        let X = (this.point.x * Tile.length) + margin
-        let Y = (this.point.y * Tile.length) + margin
-        let length = Tile.length - (margin * 2)
-        ctx.rect(X, Y, length, length)
-
-        for(let edge of edges)
+        /* Draw one edge of the tile. */
+        const draw = (edge) =>
         {
+            let ctx = CANVAS.getContext('2d')
+            ctx.beginPath()
+            ctx.fillStyle = Snake.snakeColor
+    
+            ctx.arc(X, Y, RADIUS, 0, 2 * Math.PI)
+    
             let x, y, width, height
             switch(edge)
             {
                 case 1:
-                    x = X
-                    y = Y - margin
-                    width = length
-                    height = margin
+                    x = X - RADIUS
+                    y = Y - (Tile.length / 2)
+                    width = RADIUS * 2
+                    height = (Tile.length) / 2
                     ctx.rect(x, y, width, height)
                     break
                 case 2:
-                    x = X + length
-                    y = Y
-                    width = margin + 1
-                    height = length
+                    x = X
+                    y = Y - RADIUS
+                    width = (Tile.length) / 2
+                    height = RADIUS * 2
                     ctx.rect(x, y, width, height)
                     break
                 case 3:
-                    x = X
-                    y = Y + length
-                    width = length
-                    height = margin + 1
+                    x = X - RADIUS
+                    y = Y
+                    width = RADIUS * 2
+                    height = (Tile.length) / 2
                     ctx.rect(x, y, width, height)
                     break
                 case 4:
-                    x = X - margin
-                    y = Y
-                    width = margin
-                    height = length
+                    x = X - (Tile.length / 2)
+                    y = Y - RADIUS
+                    width = (Tile.length) / 2
+                    height = RADIUS * 2
                     ctx.rect(x, y, width, height)
                     break
             }
+            
+            ctx.fill()
         }
 
+        for(let edge of edges) draw(edge)
+       
+        /* If there is a corner round it out. */
+        let frame1 = edges[0] == edges[1]
+        let frontOrBack = edges.includes(null)
+        let corner = (edges[0] + 2) % 4 != edges[1] % 4
+        if(!frame1 && !frontOrBack && corner)
+        {
+            let ctx = CANVAS.getContext('2d')
+            ctx.beginPath()
+            ctx.fillStyle = Snake.snakeColor
+
+            let xArc = (edges.includes(2)) ? X + (RADIUS * 2) : X - (RADIUS * 2)
+            let yArc = (edges.includes(1)) ? Y - (RADIUS * 2) : Y + (RADIUS * 2)
+            let angle = ((edges.includes(1)) ? ((edges.includes(2)) ? 1 : 4) : ((edges.includes(2)) ? 2 : 3)) * Math.PI / 2
+
+            ctx.moveTo(X, Y)
+            ctx.arc(xArc, yArc, RADIUS, angle, angle + Math.PI / 2)
+            ctx.closePath()
+            ctx.fill()
+        }
+    }
+
+    drawFood = () =>
+    {
+        const X = (this.point.x * Tile.length) + (Tile.length / 2)
+        const Y = (this.point.y * Tile.length) + (Tile.length / 2)
+        const RADIUS = Tile.length * 0.3
+
+        let ctx = CANVAS.getContext('2d')
+        ctx.beginPath()
+        ctx.fillStyle = Snake.foodColor
+        ctx.arc(X, Y, RADIUS, 0, 2 * Math.PI)
         ctx.fill()
     }
 
     drawPath = (edges) =>
     {
-        let ctx = CANVAS.getContext('2d')
-        ctx.beginPath()
-        ctx.fillStyle = '#444444'
+        const X = (this.point.x * Tile.length) + (Tile.length / 2)
+        const Y = (this.point.y * Tile.length) + (Tile.length / 2)
+        const RADIUS = Tile.length * 0.15
 
-        let X = (this.point.x * Tile.length) + ~~(Tile.length / 2)
-        let Y = (this.point.y * Tile.length) + ~~(Tile.length / 2)
-        let longEdge = ~~(Tile.length * 0.5)
-        let shortEdge = Math.max(~~(Tile.length * 0.04), 1)
-        ctx.arc(X, Y, (longEdge / 3), 0, (2 * Math.PI))
-
-        for(let edge of edges)
+        /* Draw one edge of the tile. */
+        const draw = (edge) =>
         {
+            let ctx = CANVAS.getContext('2d')
+            ctx.beginPath()
+            ctx.fillStyle = '#444444'
+    
+            ctx.arc(X, Y, RADIUS, 0, 2 * Math.PI)
+    
             let x, y, width, height
             switch(edge)
             {
                 case 1:
-                    x = X - (shortEdge / 2)
-                    y = Y - longEdge
-                    width = shortEdge
-                    height = longEdge
+                    x = X - (RADIUS / 4)
+                    y = Y - (Tile.length / 2)
+                    width = RADIUS / 2
+                    height = (Tile.length) / 2
                     ctx.rect(x, y, width, height)
                     break
                 case 2:
                     x = X
-                    y = Y - (shortEdge / 2)
-                    width = longEdge + 2
-                    height = shortEdge
+                    y = Y - (RADIUS / 4)
+                    width = (Tile.length) / 2
+                    height = RADIUS / 2
                     ctx.rect(x, y, width, height)
                     break
                 case 3:
-                    x = X - (shortEdge / 2)
+                    x = X - (RADIUS / 4)
                     y = Y
-                    width = shortEdge
-                    height = longEdge + 2
+                    width = RADIUS / 2
+                    height = (Tile.length) / 2
                     ctx.rect(x, y, width, height)
                     break
                 case 4:
-                    x = X - longEdge
-                    y = Y - (shortEdge / 2)
-                    width = longEdge
-                    height = shortEdge
+                    x = X - (Tile.length / 2)
+                    y = Y - (RADIUS / 4)
+                    width = (Tile.length) / 2
+                    height = RADIUS / 2
                     ctx.rect(x, y, width, height)
                     break
             }
+            
+            ctx.fill()
         }
 
-        ctx.fill()
+        for(let edge of edges) draw(edge)
     }
 }
 
@@ -195,12 +231,12 @@ class Grid
         this.width = width
         this.height = height
         this.tiles = new Array(width * height)
-        for(let i = 0; i < this.tiles.length; i++) this.tiles[i] = new Tile(i, width)
+        for(let i = 0; i < this.tiles.length; i++) this.tiles[i] = new Tile(i, this)
     }
 
     get = (point) =>
     {
-        return this.tiles[Point.toIndex(point.x, point.y, this)]
+        return this.tiles[Point.toIndex(point, this)]
     }
 }
 
@@ -257,6 +293,7 @@ class Snake
 
     #move = () =>
     {
+        /* Return if the snake moved into itself. */
         if(this.head.in(this.body)) return true
 
         this.body.unshift(this.head)
@@ -274,34 +311,32 @@ class Snake
 
     #moveFood = () =>
     {
-        if(this.length >= this.grid.width * this.grid.height)
+        if(this.length > this.grid.width * this.grid.height) this.food = new Point(-1, -1)
+        else
         {
-            this.food = new Point(-1, -1)
-            return
+            while(this.food.in(this.body) || this.food.equals(this.head)) this.food = Point.random(this.grid)
         }
-
-        let point = Point.random(this.grid)
-        while(point.in(this.body) || point.equals(this.head)) point = Point.random(this.grid)
-        this.food = point
     }
 
     #draw = () =>
     {
         let ctx = CANVAS.getContext('2d')
         ctx.clearRect(0, 0, CANVAS.width, CANVAS.height)
+
         for(let i = 0; i < this.body.length; i++)
         {
             let current = this.body[i]
         
-            let front = this.body[(i + this.body.length + 1) % this.body.length]
-            let frontEdge = current.adjacentTo(front)
+            let front = this.body[(i + 1)]
+            let frontEdge = (front) ? current.adjacentTo(front) : null
         
-            let back = this.body[(i + this.body.length - 1) % this.body.length]
-            let backEdge = current.adjacentTo(back)
+            let back = this.body[(i - 1)]
+            let backEdge = (back) ? current.adjacentTo(back) : null
         
-            this.grid.tiles[Point.toIndex(this.body[i].x, this.body[i].y, this.grid)].drawTile(Snake.snakeColor, [frontEdge, backEdge])
+            this.grid.tiles[Point.toIndex(this.body[i], this.grid)].drawSnake([frontEdge, backEdge])
         }
-        if(!this.food.equals(new Point(-1, -1))) this.grid.get(this.food).drawTile(Snake.foodColor)
+
+        if(!this.food.equals(new Point(-1, -1))) this.grid.get(this.food).drawFood()
     }
 }
 
@@ -309,8 +344,10 @@ const hamiltonian = (grid, drawPath=false, acuracy=0.4, step=40) =>
 {
     const findPath = () =>
     {
+        /* Seperate the grid so the algorithm makes multiple 4x4, 4x6 and 6x6 grids. */
         const seperate = () =>
         {
+            /* Reduce an even number to groupings of 2, 4 and 6. */
             const reduce = (n, array=[]) =>
             {
                 switch(n)
@@ -318,13 +355,13 @@ const hamiltonian = (grid, drawPath=false, acuracy=0.4, step=40) =>
                     case 0:
                         return array
                     case 2:
-                        array.push(n)
+                        array.push(2)
                         return reduce(n - 2, array)
                     case 4:
-                        array.push(n)
+                        array.push(4)
                         return reduce(n - 4, array)
                     case 6:
-                        array.push(n)
+                        array.push(6)
                         return reduce(n - 6, array)
                     case 8:
                         array.push(4)
@@ -359,6 +396,7 @@ const hamiltonian = (grid, drawPath=false, acuracy=0.4, step=40) =>
         {
             let path = []
 
+            /* Check if a point is within the grid bounds, is next to the previously added point, and is not already in the path. */
             const valid = (vertex) =>
             {
                 if(!vertex.within(_grid)) return false
@@ -367,19 +405,21 @@ const hamiltonian = (grid, drawPath=false, acuracy=0.4, step=40) =>
                 return true
             }
     
+            /* Generate the path if one exists. */
             const cycle = (vertex) =>
             {
                 if(path.length == _grid.width * _grid.height)
                 {
                     if(path[0].adjacentTo(path[path.length - 1]))
                     {
-                        path = path.map((v) => {return Point.toIndex(v.x, v.y, _grid)})
+                        path = path.map((v) => {return Point.toIndex(v, _grid)})
                         return true
                     }
+
                     return false
                 }
     
-                for(let _vertex of vertex.neighbors())
+                for(let _vertex of vertex.neighbors(true))
                 {
                     if(valid(_vertex))
                     {
@@ -388,6 +428,7 @@ const hamiltonian = (grid, drawPath=false, acuracy=0.4, step=40) =>
                         path.shift()
                     }
                 }
+
                 return false
             }
     
@@ -399,20 +440,24 @@ const hamiltonian = (grid, drawPath=false, acuracy=0.4, step=40) =>
         {
             if(layout.length == 1) return generateHamiltonian(layout[0][0])
             
+            /* Merge hamiltonian path B into hamiltonian path A. */
             const merge = (B, A, oldGridB, oldGridA, newGrid) =>
             {
                 if(A.length == 0) return B
 
+                /* Find a point in path A that is adjacent to a point in path B. */
                 const connection = () =>
                 {
                     for(let i = 0; i < A.length; i++)
                     {
                         for(let point of A[i].neighbors())
-                        {
-                            let j
-                            if(j = point.in(B))
+                        {  
+                            if(point.in(B))
                             {
+                                let j = B.findIndex((e) => {return e.equals(point)})
                                 if(A[(i + 1) % A.length].in(B[j - 1].neighbors())) return [i, j]
+                                /* i is the index of the connection in path A.
+                                   j is the index of the connection in path B. */
                             }
                         }
                     }
@@ -424,18 +469,20 @@ const hamiltonian = (grid, drawPath=false, acuracy=0.4, step=40) =>
                 B = B.map((n) => {return Point.fromIndex(n, oldGridB)})
                 B.forEach((e) => {(newGrid.width > oldGridB.width) ? e.x += oldGridA.width : e.y += oldGridA.height})
 
+                /* n is the index of the connection in path A.
+                   m is the index of the connection in path B. */
                 let [n, m] = connection()
                 let path = []
 
                 for(let i = 0; i < A.length; i++)
                 {
-                    path.push(Point.toIndex(A[i].x, A[i].y, newGrid))
+                    path.push(Point.toIndex(A[i], newGrid))
 
                     if(i == n)
                     {
                         for(let j = m, k = 0; k < B.length; j = (j + 1) % B.length, k++)
                         {
-                            path.push(Point.toIndex(B[j].x, B[j].y, newGrid))
+                            path.push(Point.toIndex(B[j], newGrid))
                         }
                     }
                 }
@@ -443,44 +490,43 @@ const hamiltonian = (grid, drawPath=false, acuracy=0.4, step=40) =>
                 return path
             }
 
-            try
+            /* Create and merge paths top -> bottom, left -> right. */
+            let finalPath = []
+            let finalGrid = new Grid(0, grid.height)
+
+            for(let i = 0; i < layout.length; i++)
             {
-                let finalPath = []
-                let finalGrid = new Grid(0, grid.height)
+                let pathLayer = []
+                let gridLayer = new Grid(layout[i][0].width, 0)
 
-                for(let i = 0; i < layout.length; i++)
+                for(let j = 0; j < layout[i].length; j++)
                 {
-                    let pathLayer = []
-                    let gridLayer = new Grid(layout[i][0].width, 0)
-
-                    for(let j = 0; j < layout[i].length; j++)
+                    while(true)
                     {
-                        while(true)
+                        /* Attempt to add a row to current column. */
+                        try
                         {
-                            try
-                            {
-                                pathLayer = merge(generateHamiltonian(layout[i][j]), pathLayer, layout[i][j], gridLayer, new Grid(layout[i][j].width, layout[i][j].height + gridLayer.height))
-                                gridLayer = new Grid(layout[i][j].width, layout[i][j].height + gridLayer.height)
-                                break
-                            }
-                            catch(e) {continue}
+                            pathLayer = merge(generateHamiltonian(layout[i][j]), pathLayer, layout[i][j], gridLayer, new Grid(layout[i][j].width, layout[i][j].height + gridLayer.height))
+                            gridLayer = new Grid(layout[i][j].width, layout[i][j].height + gridLayer.height)
+                            break
                         }
+                        /* Remake the row until it is able to connect. */
+                        catch(e) {continue}
                     }
-
-                    try
-                    {
-                        finalPath = merge(pathLayer, finalPath, gridLayer, finalGrid, new Grid(finalGrid.width + gridLayer.width, grid.height))
-                        finalGrid = new Grid(finalGrid.width + gridLayer.width, grid.height)
-                    }
-                    catch(e) {i--}
                 }
 
-                return finalPath
+                /* Atempt to add a column to the final path. */
+                try
+                {
+                    finalPath = merge(pathLayer, finalPath, gridLayer, finalGrid, new Grid(finalGrid.width + gridLayer.width, grid.height))
+                    finalGrid = new Grid(finalGrid.width + gridLayer.width, grid.height)
+                }
+                /* Remake the column until it is able to connect. */
+                catch(e) {i--}
             }
-            catch(e)
-            {
-                return generatePath(layout)
-            }
+
+            return finalPath
+
         }
 
         let layout = seperate()
@@ -490,6 +536,7 @@ const hamiltonian = (grid, drawPath=false, acuracy=0.4, step=40) =>
     let path = findPath()
     let snake = new Snake(grid)
 
+    /* Draw the path. */
     const draw = () =>
     {
         for(let i = 0; i < path.length; i++)
@@ -510,8 +557,8 @@ const hamiltonian = (grid, drawPath=false, acuracy=0.4, step=40) =>
     {
         const distance = (A, B) =>
         {
-            let indexA = path.indexOf(Point.toIndex(A.x, A.y, grid))
-            let indexB = path.indexOf(Point.toIndex(B.x, B.y, grid))
+            let indexA = path.indexOf(Point.toIndex(A, grid))
+            let indexB = path.indexOf(Point.toIndex(B, grid))
             return (indexB - indexA + path.length) % path.length
         }
 
@@ -520,9 +567,11 @@ const hamiltonian = (grid, drawPath=false, acuracy=0.4, step=40) =>
             return Math.min(...snake.body.map((segment) => {return distance(point, segment)}))
         }
 
-        let forward = snake.head.adjacentTo(Point.fromIndex(path[(path.indexOf(Point.toIndex(snake.head.x, snake.head.y, snake.grid)) + path.length + 1) % path.length], grid))
+        /* Get the point that is one step forward in the path from the snake's head. */
+        let forward = snake.head.adjacentTo(Point.fromIndex(path[(path.indexOf(Point.toIndex(snake.head, snake.grid)) + path.length + 1) % path.length], grid))
 
-        let direction, best = [0, path.length]
+        /* Determain if the snake can take any shortcuts in the path. */
+        let best = [0, path.length]
         for(let neighbor of snake.head.neighbors())
         {
             if(!neighbor.within(grid)) continue
@@ -531,7 +580,7 @@ const hamiltonian = (grid, drawPath=false, acuracy=0.4, step=40) =>
             if(best[1] > distance(neighbor, snake.food)) best = [snake.head.adjacentTo(neighbor), distance(neighbor, snake.food)]
         }
 
-        direction = (best[0] != 0) ? best[0] : forward
+        let direction = (best[0]) ? best[0] : forward
         switch(direction)
         {
             case 1:
@@ -556,11 +605,11 @@ const hamiltonian = (grid, drawPath=false, acuracy=0.4, step=40) =>
 
 const setup = () =>
 {
-    let width = ~~(screen.width / Tile.length) >> 1 << 1
-    let height = ~~(screen.height / Tile.length) >> 1 << 1
+    let width = ~~(window.innerWidth / Tile.length) >> 1 << 1
+    let height = ~~(window.innerHeight / Tile.length) >> 1 << 1
     CANVAS.width = width * Tile.length
     CANVAS.height = height * Tile.length
     return new Grid(width, height)
 }
 
-hamiltonian(setup())
+hamiltonian(setup(), drawPath=true, acuracy=.1)
