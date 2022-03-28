@@ -612,4 +612,4 @@ const setup = () =>
     return new Grid(width, height)
 }
 
-hamiltonian(setup(), drawPath=true, acuracy=.1)
+hamiltonian(setup())
