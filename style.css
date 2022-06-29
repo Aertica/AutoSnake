@@ -1,8 +1,10 @@
-* {
+*
+{
     background-color: black;
 }
 
-#canvas {
+#canvas
+{
     position: absolute;
     top: 50%;
     left: 50%;

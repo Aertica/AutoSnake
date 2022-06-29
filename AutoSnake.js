@@ -1,5 +1,12 @@
 const CANVAS = document.getElementById('canvas')
 
+const SNAKECOLOR = '#00ff00'
+const FOODCOLOR = '#ff0000'
+const DRAWPATH = true
+const TILELENGTH = 120
+const ACURACY = 0.4
+const STEP = 60
+
 class Point
 {
     constructor(x, y)
@@ -75,8 +82,6 @@ class Point
 
 class Tile
 {
-    static length = 100
-
     constructor(index, grid)
     {
         this.point = Point.fromIndex(index, grid)
@@ -84,16 +89,16 @@ class Tile
 
     drawSnake = (edges) =>
     {
-        const X = (this.point.x * Tile.length) + (Tile.length / 2)
-        const Y = (this.point.y * Tile.length) + (Tile.length / 2)
-        const RADIUS = Tile.length * 0.25
+        const X = (this.point.x * TILELENGTH) + (TILELENGTH / 2)
+        const Y = (this.point.y * TILELENGTH) + (TILELENGTH / 2)
+        const RADIUS = TILELENGTH * 0.25
 
         /* Draw one edge of the tile. */
         const draw = (edge) =>
         {
             let ctx = CANVAS.getContext('2d')
             ctx.beginPath()
-            ctx.fillStyle = Snake.snakeColor
+            ctx.fillStyle = SNAKECOLOR
     
             ctx.arc(X, Y, RADIUS, 0, 2 * Math.PI)
     
@@ -102,15 +107,15 @@ class Tile
             {
                 case 1:
                     x = X - RADIUS
-                    y = Y - (Tile.length / 2)
+                    y = Y - (TILELENGTH / 2)
                     width = RADIUS * 2
-                    height = (Tile.length) / 2
+                    height = (TILELENGTH) / 2
                     ctx.rect(x, y, width, height)
                     break
                 case 2:
                     x = X
                     y = Y - RADIUS
-                    width = (Tile.length) / 2
+                    width = (TILELENGTH) / 2
                     height = RADIUS * 2
                     ctx.rect(x, y, width, height)
                     break
@@ -118,13 +123,13 @@ class Tile
                     x = X - RADIUS
                     y = Y
                     width = RADIUS * 2
-                    height = (Tile.length) / 2
+                    height = (TILELENGTH) / 2
                     ctx.rect(x, y, width, height)
                     break
                 case 4:
-                    x = X - (Tile.length / 2)
+                    x = X - (TILELENGTH / 2)
                     y = Y - RADIUS
-                    width = (Tile.length) / 2
+                    width = (TILELENGTH) / 2
                     height = RADIUS * 2
                     ctx.rect(x, y, width, height)
                     break
@@ -143,7 +148,7 @@ class Tile
         {
             let ctx = CANVAS.getContext('2d')
             ctx.beginPath()
-            ctx.fillStyle = Snake.snakeColor
+            ctx.fillStyle = SNAKECOLOR
 
             let xArc = (edges.includes(2)) ? X + (RADIUS * 2) : X - (RADIUS * 2)
             let yArc = (edges.includes(1)) ? Y - (RADIUS * 2) : Y + (RADIUS * 2)
@@ -158,22 +163,22 @@ class Tile
 
     drawFood = () =>
     {
-        const X = (this.point.x * Tile.length) + (Tile.length / 2)
-        const Y = (this.point.y * Tile.length) + (Tile.length / 2)
-        const RADIUS = Tile.length * 0.3
+        const X = (this.point.x * TILELENGTH) + (TILELENGTH / 2)
+        const Y = (this.point.y * TILELENGTH) + (TILELENGTH / 2)
+        const RADIUS = TILELENGTH * 0.3
 
         let ctx = CANVAS.getContext('2d')
         ctx.beginPath()
-        ctx.fillStyle = Snake.foodColor
+        ctx.fillStyle = FOODCOLOR
         ctx.arc(X, Y, RADIUS, 0, 2 * Math.PI)
         ctx.fill()
     }
 
     drawPath = (edges) =>
     {
-        const X = (this.point.x * Tile.length) + (Tile.length / 2)
-        const Y = (this.point.y * Tile.length) + (Tile.length / 2)
-        const RADIUS = Tile.length * 0.15
+        const X = (this.point.x * TILELENGTH) + (TILELENGTH / 2)
+        const Y = (this.point.y * TILELENGTH) + (TILELENGTH / 2)
+        const RADIUS = TILELENGTH * 0.15
 
         /* Draw one edge of the tile. */
         const draw = (edge) =>
@@ -189,15 +194,15 @@ class Tile
             {
                 case 1:
                     x = X - (RADIUS / 4)
-                    y = Y - (Tile.length / 2)
+                    y = Y - (TILELENGTH / 2)
                     width = RADIUS / 2
-                    height = (Tile.length) / 2
+                    height = (TILELENGTH) / 2
                     ctx.rect(x, y, width, height)
                     break
                 case 2:
                     x = X
                     y = Y - (RADIUS / 4)
-                    width = (Tile.length) / 2
+                    width = (TILELENGTH) / 2
                     height = RADIUS / 2
                     ctx.rect(x, y, width, height)
                     break
@@ -205,13 +210,13 @@ class Tile
                     x = X - (RADIUS / 4)
                     y = Y
                     width = RADIUS / 2
-                    height = (Tile.length) / 2
+                    height = (TILELENGTH) / 2
                     ctx.rect(x, y, width, height)
                     break
                 case 4:
-                    x = X - (Tile.length / 2)
+                    x = X - (TILELENGTH / 2)
                     y = Y - (RADIUS / 4)
-                    width = (Tile.length) / 2
+                    width = (TILELENGTH) / 2
                     height = RADIUS / 2
                     ctx.rect(x, y, width, height)
                     break
@@ -242,9 +247,6 @@ class Grid
 
 class Snake
 {
-    static snakeColor = '#00ff00'
-    static foodColor = '#ff0000'
-
     constructor(grid)
     {
         this.grid = grid
@@ -252,6 +254,7 @@ class Snake
         this.body = [this.head]
         this.food = Point.random(grid)
         this.length = 6
+        this.time = 0
         this.#draw()
     }
 
@@ -302,9 +305,11 @@ class Snake
         if(this.head.equals(this.food))
         {
             this.length += 2
+            this.time = 0
             this.#moveFood()
         }
 
+        this.time++
         this.#draw()
         return false
     }
@@ -333,14 +338,14 @@ class Snake
             let back = this.body[(i - 1)]
             let backEdge = (back) ? current.adjacentTo(back) : null
         
-            this.grid.tiles[Point.toIndex(this.body[i], this.grid)].drawSnake([frontEdge, backEdge])
+            this.grid.get(this.body[i]).drawSnake([frontEdge, backEdge])
         }
 
         if(!this.food.equals(new Point(-1, -1))) this.grid.get(this.food).drawFood()
     }
 }
 
-const hamiltonian = (grid, drawPath=false, acuracy=0.4, step=40) =>
+const hamiltonian = (grid) =>
 {
     const findPath = () =>
     {
@@ -572,43 +577,45 @@ const hamiltonian = (grid, drawPath=false, acuracy=0.4, step=40) =>
 
         /* Determain if the snake can take any shortcuts in the path. */
         let best = [0, path.length]
-        for(let neighbor of snake.head.neighbors())
+        for(let neighbor of snake.head.neighbors(true))
         {
             if(!neighbor.within(grid)) continue
-            if(distanceToSnake(neighbor) < snake.length * acuracy) continue 
+            if(distanceToSnake(neighbor) < snake.length * ACURACY) continue 
             
             if(best[1] > distance(neighbor, snake.food)) best = [snake.head.adjacentTo(neighbor), distance(neighbor, snake.food)]
+            /* If the snake is in a loop, turn in a random direction. */
+            if(snake.time > path.length) best[0] = snake.head.adjacentTo(neighbor)
         }
 
         let direction = (best[0]) ? best[0] : forward
         switch(direction)
         {
             case 1:
-                if(snake.up()) location.reload()
+                if(snake.up()) window.location.reload()
                 break
             case 2:
-                if(snake.right()) location.reload()
+                if(snake.right()) window.location.reload()
                 break
             case 3:
-                if(snake.down()) location.reload()
+                if(snake.down()) window.location.reload()
                 break
             case 4:
-                if(snake.left()) location.reload()
+                if(snake.left()) window.location.reload()
                 break
         }
 
-        if(drawPath) draw()
+        if(DRAWPATH) draw()
     }
 
-    setInterval(move, step)
+    setInterval(move, STEP)
 }
 
 const setup = () =>
 {
-    let width = ~~(window.innerWidth / Tile.length) >> 1 << 1
-    let height = ~~(window.innerHeight / Tile.length) >> 1 << 1
-    CANVAS.width = width * Tile.length
-    CANVAS.height = height * Tile.length
+    let width = ~~(window.innerWidth / TILELENGTH) >> 1 << 1
+    let height = ~~(window.innerHeight / TILELENGTH) >> 1 << 1
+    CANVAS.width = width * TILELENGTH
+    CANVAS.height = height * TILELENGTH
     return new Grid(width, height)
 }
 
