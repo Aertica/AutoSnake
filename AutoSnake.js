@@ -2,7 +2,7 @@ const CANVAS = document.getElementById('canvas')
 
 const SNAKECOLOR = '#00ff00'
 const FOODCOLOR = '#ff0000'
-const DRAWPATH = true
+const DRAWPATH = false
 const TILELENGTH = 120
 const ACURACY = 0.4
 const STEP = 60
